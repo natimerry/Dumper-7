@@ -9,6 +9,7 @@
 #include "Utils.h"
 
 #include "Platform.h"
+#include "Unreal/RivalsDiscovery.h"
 #include "Json/json.hpp"
 
 #include <fstream>
@@ -44,7 +45,7 @@ void Generator::InitEngineCore()
 
 	ObjectArray::Init();
 
-	CALL_PLATFORM_SPECIFIC_FUNCTION(FName::Init);
+	if (!Rivals::InitializeNames()) CALL_PLATFORM_SPECIFIC_FUNCTION(FName::Init);
 
 	Off::Init();
 	PropertySizes::Init();
@@ -78,6 +79,11 @@ void Generator::InitInternal()
 
 bool Generator::SetupDumperFolder()
 {
+	if (!CommonRoot.empty()) {
+		DumperFolder = CommonRoot;
+		fs::create_directories(DumperFolder);
+		return true;
+	}
 	try
 	{
 		std::string FolderName = (Settings::Generator::GameVersion + '-' + Settings::Generator::GameName);
@@ -130,7 +136,7 @@ bool Generator::SetupFolders(std::string& FolderName, fs::path& OutFolder, std::
 
 	try
 	{
-		OutFolder = DumperFolder / FolderName;
+		OutFolder = FolderName == "CppSDK" && !CppRoot.empty() ? CppRoot : DumperFolder / FolderName;
 		OutSubFolder = OutFolder / SubfolderName;
 				
 		if (fs::exists(OutFolder))

@@ -43,11 +43,13 @@ private:
 
 private:
     static inline fs::path DumperFolder;
+    static inline fs::path CppRoot, CommonRoot;
     static inline bool bDumpedGObjects = false;
 	static inline bool bDumepdEditorOnlyMetadata = false;
 
 public:
     static void InitEngineCore();
+    static void SetOutputRoots(const fs::path& Cpp, const fs::path& Common) { CppRoot = Cpp; CommonRoot = Common; }
     static void InitInternal();
 
 private:

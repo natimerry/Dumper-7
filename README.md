@@ -1,6 +1,9 @@
 
 # Dumper-7
 
+This Rivals fork defaults to a synchronous DumpAll companion DLL. See
+[RIVALS.md](RIVALS.md) for signature discovery, the library API, builds and tests.
+
 SDK Generator for all Unreal Engine games. Supported versions are all of UE4 and UE5.
 
 ## How to use

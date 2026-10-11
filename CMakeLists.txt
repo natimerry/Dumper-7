@@ -23,6 +23,10 @@ file(GLOB_RECURSE CPP_SOURCES
 )
 
 add_library(${PROJECT_NAME} SHARED ${CPP_SOURCES})
+option(DUMPER7_LIBRARY_MODE "Build as a synchronous DumpAll companion without a DllMain worker" ON)
+if(DUMPER7_LIBRARY_MODE)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE DUMPER7_LIBRARY_MODE)
+endif()
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
@@ -82,4 +86,19 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 set_target_properties(${PROJECT_NAME} PROPERTIES
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     VS_GLOBAL_KEYWORD "Win32Proj"
-) 
+)
+
+include(CTest)
+if(BUILD_TESTING AND WIN32)
+    add_executable(rivals-object-tests tests/RivalsObjectArrayTests.cpp)
+    target_compile_features(rivals-object-tests PRIVATE cxx_std_20)
+    target_include_directories(rivals-object-tests PRIVATE ${CMAKE_SOURCE_DIR}/Dumper/Engine/Public)
+    add_test(NAME rivals-object-array COMMAND rivals-object-tests)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_FOUND AND DUMPER7_LIBRARY_MODE)
+        add_test(NAME rivals-companion-abi COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/CompanionSmoke.py $<TARGET_FILE:Dumper-7>)
+    endif()
+    add_executable(rivals-dump-check tests/RivalsDumpCheck.cpp)
+    target_compile_features(rivals-dump-check PRIVATE cxx_std_20)
+    target_include_directories(rivals-dump-check PRIVATE ${CMAKE_SOURCE_DIR}/Dumper/Engine/Public ${CMAKE_SOURCE_DIR}/Dumper/Utils)
+endif()

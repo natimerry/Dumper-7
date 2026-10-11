@@ -8,6 +8,7 @@
 #include "OffsetFinder/Offsets.h"
 
 namespace fs = std::filesystem;
+namespace Rivals { struct ObjectArrayInfo; }
 
 class ObjectArray
 {
@@ -35,6 +36,7 @@ private:
 
 private:
 	static void InitializeFUObjectItem(uint8_t* FirstItemPtr);
+	static void InitRivals(const Rivals::ObjectArrayInfo& Info);
 
 public:
 	static void InitDecryption(uint8_t* (*DecryptionFunction)(void* ObjPtr), const char* DecryptionLambdaAsStr);

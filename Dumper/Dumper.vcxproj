@@ -297,6 +297,7 @@
     <ClCompile Include="Generator\Private\Generators\DumpspaceGenerator.cpp" />
     <ClCompile Include="Engine\Private\Unreal\NameArray.cpp" />
     <ClCompile Include="Engine\Private\Unreal\ObjectArray.cpp" />
+    <ClCompile Include="Engine\Private\Unreal\RivalsDiscovery.cpp" />
     <ClCompile Include="Engine\Private\OffsetFinder\Offsets.cpp" />
     <ClCompile Include="Engine\Private\Unreal\UnrealObjects.cpp" />
     <ClCompile Include="Engine\Private\Unreal\UnrealTypes.cpp" />
@@ -362,6 +363,9 @@
     <ClInclude Include="Utils\Utils.h" />
     <ClInclude Include="Generator\Public\Wrappers\StructWrapper.h" />
   </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><PreprocessorDefinitions>DUMPER7_LIBRARY_MODE;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

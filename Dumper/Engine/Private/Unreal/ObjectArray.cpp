@@ -5,6 +5,8 @@
 #include <filesystem>
 
 #include "Unreal/ObjectArray.h"
+#include "Unreal/RivalsDiscovery.h"
+#include <stdexcept>
 #include "OffsetFinder/Offsets.h"
 #include "Utils.h"
 
@@ -200,8 +202,17 @@ void ObjectArray::InitDecryption(uint8_t* (*DecryptionFunction)(void* ObjPtr), c
 
 
 /* We don't speak about this function... */
+template<typename Layout>
+static bool SafeMatches(uintptr_t Address, const Layout& Value)
+{
+	__try { return ::IsAddressValidGObjects(Address, Value); }
+	__except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) { return false; }
+}
 void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 {
+	if (!ModuleName) {
+		if (auto info = Rivals::FindObjects()) { InitRivals(*info); return; }
+	}
 	if (!bScanAllMemory)
 	{
 		std::cerr << "\nDumper-7 by me, you & him\n\n\n";
@@ -212,7 +223,7 @@ void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 	{
 		for (const ArrayLayoutType& Layout : ObjectArrayLayouts)
 		{
-			if (!IsAddressValidGObjects(Address, Layout))
+			if (!SafeMatches(Address, Layout))
 				continue;
 
 			if constexpr (std::is_same_v<ArrayLayoutType, FFixedUObjectArrayLayout>)
@@ -275,7 +286,7 @@ void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 
 			ByIndex = [](void* ObjectsArray, int32 Index, uint32 FUObjectItemSize, uint32 FUObjectItemOffset, uint32 PerChunk) -> void*
 			{
-				if (Index < 0 || Index > Num())
+				if (Index < 0 || Index >= Num())
 					return nullptr;
 
 				uint8_t* ChunkPtr = DecryptPtr(*reinterpret_cast<uint8_t**>(ObjectsArray));
@@ -303,7 +314,7 @@ void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 
 			ByIndex = [](void* ObjectsArray, int32 Index, uint32 FUObjectItemSize, uint32 FUObjectItemOffset, uint32 PerChunk) -> void*
 			{
-				if (Index < 0 || Index > Num())
+				if (Index < 0 || Index >= Num())
 					return nullptr;
 
 				const int32 ChunkIndex = Index / PerChunk;
@@ -334,9 +345,34 @@ void ObjectArray::Init(bool bScanAllMemory, const char* const ModuleName)
 	if (GObjects == nullptr)
 	{
 		std::cerr << "\nGObjects couldn't be found, please overwrite the offset in Generator.cpp.\n\n\n";
-		Sleep(10000);
-		exit(1);
+		throw std::runtime_error("GObjects discovery failed; SDK generation stopped");
 	}
+}
+
+void ObjectArray::InitRivals(const Rivals::ObjectArrayInfo& Info)
+{
+	GObjects = reinterpret_cast<uint8*>(Info.address);
+	NumElementsPerChunk = Info.perChunk;
+	SizeOfFUObjectItem = Info.stride;
+	FUObjectItemInitialOffset = Info.itemOffset;
+	Off::FUObjectArray::bIsChunked = true;
+	Off::FUObjectArray::ChunkedFixedLayout = {
+		static_cast<int32>(Info.layout.objects), static_cast<int32>(Info.layout.maximum),
+		static_cast<int32>(Info.layout.count), static_cast<int32>(Info.layout.maxChunks), static_cast<int32>(Info.layout.chunks)
+	};
+	Off::InSDK::ObjArray::GObjects = Platform::GetOffset(GObjects);
+	Off::InSDK::ObjArray::ChunkSize = Info.perChunk;
+	Off::InSDK::ObjArray::FUObjectItemSize = Info.stride;
+	Off::InSDK::ObjArray::FUObjectItemInitialOffset = Info.itemOffset;
+	ByIndex = [](void* ObjectsArray, int32 Index, uint32 ItemSize, uint32 ItemOffset, uint32 PerChunk) -> void* {
+		if (Index < 0 || Index >= Num() || !PerChunk) return nullptr;
+		auto table = Rivals::Load<uintptr_t>(reinterpret_cast<uintptr_t>(ObjectsArray), Rivals::Read);
+		auto chunk = table ? Rivals::Load<uintptr_t>(*table + (Index / PerChunk) * sizeof(void*), Rivals::Read) : std::nullopt;
+		auto object = chunk ? Rivals::Load<uintptr_t>(*chunk + (Index % PerChunk) * ItemSize + ItemOffset, Rivals::Read) : std::nullopt;
+		return object ? reinterpret_cast<void*>(*object) : nullptr;
+	};
+	std::cerr << "Validated Rivals GObjects RVA=0x" << std::hex << Off::InSDK::ObjArray::GObjects
+		<< " stride=0x" << Info.stride << " item_offset=0x" << Info.itemOffset << " per_chunk=0x" << Info.perChunk << '\n';
 }
 
 void ObjectArray::Init(int32 GObjectsOffset, const FFixedUObjectArrayLayout& ObjectArrayLayout, const char* const ModuleName)
@@ -351,7 +387,7 @@ void ObjectArray::Init(int32 GObjectsOffset, const FFixedUObjectArrayLayout& Obj
 
 	ByIndex = [](void* ObjectsArray, int32 Index, uint32 FUObjectItemSize, uint32 FUObjectItemOffset, uint32 PerChunk) -> void*
 	{
-		if (Index < 0 || Index > Num())
+		if (Index < 0 || Index >= Num())
 			return nullptr;
 
 		uint8_t* ItemPtr = *reinterpret_cast<uint8_t**>(ObjectsArray) + (Index * FUObjectItemSize);
@@ -379,7 +415,7 @@ void ObjectArray::Init(int32 GObjectsOffset, int32 ElementsPerChunk, const FChun
 
 	ByIndex = [](void* ObjectsArray, int32 Index, uint32 FUObjectItemSize, uint32 FUObjectItemOffset, uint32 PerChunk) -> void*
 	{
-		if (Index < 0 || Index > Num())
+		if (Index < 0 || Index >= Num())
 			return nullptr;
 
 		const int32 ChunkIndex = Index / PerChunk;
